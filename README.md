@@ -28,7 +28,7 @@
 ## 构建
 
 ```bash
-git clone https://github.com/xiaoxima/codex-usage-float.git
+git clone https://github.com/xiaoxima1214/codex-usage-float.git
 cd codex-usage-float
 chmod +x build.sh
 ./build.sh
