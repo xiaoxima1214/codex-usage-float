@@ -16,6 +16,7 @@
 - 每 45 秒自动刷新，也支持手动刷新
 - 原生 macOS 悬浮面板，始终置顶、可拖动、跨桌面显示
 - 菜单栏常驻入口，可显示、隐藏、刷新或退出
+- 支持登录 macOS 后自动启动
 - 紫白主题，与 Codex Desktop 视觉风格协调
 - 不依赖第三方运行库，不上传任何本地数据
 
@@ -36,6 +37,25 @@ open "dist/Codex Usage.app"
 ```
 
 构建产物位于 `dist/Codex Usage.app`。应用使用本地临时签名，不需要 Apple Developer 账号。
+
+## 登录时自动启动
+
+运行安装脚本：
+
+```bash
+chmod +x install-autostart.sh uninstall-autostart.sh
+./install-autostart.sh
+```
+
+脚本会重新构建应用，将其安装到 `~/Applications/Codex Usage.app`，并注册用户级 LaunchAgent。此后每次登录 macOS，浮窗都会自动启动，不需要管理员权限。
+
+如需关闭自动启动：
+
+```bash
+./uninstall-autostart.sh
+```
+
+卸载脚本只移除自动启动配置，不会删除应用或 Codex 数据。
 
 ## 使用
 
@@ -68,6 +88,8 @@ open "dist/Codex Usage.app"
 CodexUsageFloat.m  # AppKit 界面、日志解析与统计
 Info.plist         # macOS 应用配置
 build.sh           # 构建、签名和打包脚本
+install-autostart.sh   # 安装应用并启用登录自启
+uninstall-autostart.sh # 关闭登录自启
 assets/            # README 展示图片
 ```
 
