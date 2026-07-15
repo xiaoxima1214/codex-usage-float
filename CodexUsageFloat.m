@@ -4,6 +4,7 @@
 @property NSDictionary *snapshot;
 @property NSRect refreshRect, closeRect;
 @property NSRect statsRect;
+@property NSRect resizeRect;
 @property (copy) void (^refreshHandler)(void);
 @property (copy) void (^closeHandler)(void);
 @property (copy) void (^toggleStatsHandler)(void);
@@ -11,6 +12,9 @@
 @property NSInteger hoveredBar;
 @property NSArray *barRects;
 @property NSTrackingArea *hoverTrackingArea;
+@property BOOL resizing;
+@property NSPoint resizeStart;
+@property NSRect resizeStartFrame;
 @end
 
 static NSDictionary *DecodeLimit(NSDictionary *d) {
@@ -80,6 +84,7 @@ static NSDictionary *LatestUsage(void) {
 @implementation UsageView
 - (instancetype)initWithFrame:(NSRect)frame { if((self=[super initWithFrame:frame]))_hoveredBar=-1;return self; }
 - (void)updateTrackingAreas { [super updateTrackingAreas];if(self.hoverTrackingArea)[self removeTrackingArea:self.hoverTrackingArea];self.hoverTrackingArea=[[NSTrackingArea alloc]initWithRect:NSZeroRect options:NSTrackingMouseMoved|NSTrackingMouseEnteredAndExited|NSTrackingActiveAlways|NSTrackingInVisibleRect owner:self userInfo:nil];[self addTrackingArea:self.hoverTrackingArea]; }
+- (void)resetCursorRects { [super resetCursorRects];NSRect rect=NSMakeRect(self.bounds.size.width-25,1,24,24);[self addCursorRect:rect cursor:NSCursor.resizeLeftRightCursor]; }
 - (BOOL)isOpaque { return NO; }
 - (NSColor *)mint { return [NSColor colorWithCalibratedRed:.47 green:.27 blue:.91 alpha:1]; }
 - (NSColor *)ink { return [NSColor colorWithCalibratedRed:.13 green:.09 blue:.20 alpha:1]; }
@@ -142,6 +147,8 @@ static NSDictionary *LatestUsage(void) {
     [[NSColor colorWithCalibratedRed:.47 green:.27 blue:.91 alpha:.075] setFill]; [[NSBezierPath bezierPathWithRoundedRect:self.refreshRect xRadius:9 yRadius:9] fill]; [[NSBezierPath bezierPathWithRoundedRect:self.closeRect xRadius:9 yRadius:9] fill];
     [self text:@"↻" x:NSMinX(self.refreshRect)+6 y:141 size:18 color:muted weight:NSFontWeightRegular]; [self text:@"×" x:NSMinX(self.closeRect)+7 y:142 size:17 color:muted weight:NSFontWeightRegular];
     [[NSColor colorWithCalibratedRed:.47 green:.27 blue:.91 alpha:.10] setFill]; NSRect divider=NSMakeRect(22,128,386,1); NSRectFill(divider);
+    self.resizeRect=NSMakeRect(b.size.width-25,1,24,24);NSColor *grip=[NSColor colorWithCalibratedRed:.47 green:.27 blue:.91 alpha:.28];[grip setStroke];
+    for(NSInteger i=0;i<3;i++){NSBezierPath *line=NSBezierPath.bezierPath;[line moveToPoint:NSMakePoint(b.size.width-7-i*5,5)];[line lineToPoint:NSMakePoint(b.size.width-5,7+i*5)];line.lineWidth=1.2;[line stroke];}
     if (self.snapshot) {
         [self drawLimit:@"本周" value:self.snapshot[@"weekly"] y:74];
         NSTimeInterval age=-[self.snapshot[@"date"] timeIntervalSinceNow]; NSString *relative=age<60?@"刚刚更新":age<3600?[NSString stringWithFormat:@"%.0f 分钟前",age/60]:[NSString stringWithFormat:@"%.0f 小时前",age/3600];
@@ -150,7 +157,9 @@ static NSDictionary *LatestUsage(void) {
         [self text:self.statsVisible?@"Token 统计  ‹":@"Token 统计  ›" x:115 y:29 size:10.5 color:self.mint weight:NSFontWeightSemibold];if(self.statsVisible)[self drawTokenStats];
     } else { [self text:@"尚未找到用量数据" x:24 y:89 size:22 color:self.ink weight:NSFontWeightSemibold]; [self text:@"在 Codex 中发送一条消息后点击刷新" x:24 y:62 size:12.5 color:muted weight:NSFontWeightRegular]; }
 }
-- (void)mouseDown:(NSEvent *)event { NSPoint p=[self convertPoint:event.locationInWindow fromView:nil]; if(NSPointInRect(p,self.refreshRect)){if(self.refreshHandler)self.refreshHandler();}else if(NSPointInRect(p,self.closeRect)){if(self.closeHandler)self.closeHandler();}else if(NSPointInRect(p,self.statsRect)){if(self.toggleStatsHandler)self.toggleStatsHandler();}else[self.window performWindowDragWithEvent:event]; }
+- (void)mouseDown:(NSEvent *)event { NSPoint p=[self convertPoint:event.locationInWindow fromView:nil];if(NSPointInRect(p,self.resizeRect)){self.resizing=YES;self.resizeStart=NSEvent.mouseLocation;self.resizeStartFrame=self.window.frame;return;}if(NSPointInRect(p,self.refreshRect)){if(self.refreshHandler)self.refreshHandler();}else if(NSPointInRect(p,self.closeRect)){if(self.closeHandler)self.closeHandler();}else if(NSPointInRect(p,self.statsRect)){if(self.toggleStatsHandler)self.toggleStatsHandler();}else[self.window performWindowDragWithEvent:event]; }
+- (void)mouseDragged:(NSEvent *)event { if(!self.resizing)return;NSPoint now=NSEvent.mouseLocation;CGFloat dx=now.x-self.resizeStart.x,dy=now.y-self.resizeStart.y;CGFloat baseWidth=self.statsVisible?700:430,baseHeight=184;CGFloat horizontal=(self.resizeStartFrame.size.width+dx)/baseWidth,vertical=(self.resizeStartFrame.size.height-dy)/baseHeight;CGFloat scale=fabs(dx)>=fabs(dy)?horizontal:vertical;scale=MAX(.72,MIN(1.85,scale));NSRect frame=self.resizeStartFrame;frame.size=NSMakeSize(baseWidth*scale,baseHeight*scale);frame.origin.y=NSMaxY(self.resizeStartFrame)-frame.size.height;[self.window setFrame:frame display:YES];[self setBoundsSize:NSMakeSize(baseWidth,baseHeight)]; }
+- (void)mouseUp:(NSEvent *)event { self.resizing=NO; }
 - (void)mouseMoved:(NSEvent *)event { if(!self.statsVisible)return;NSPoint p=[self convertPoint:event.locationInWindow fromView:nil];NSInteger hit=-1;for(NSInteger i=0;i<self.barRects.count;i++)if(NSPointInRect(p,[self.barRects[i]rectValue])){hit=i;break;}if(hit!=self.hoveredBar){self.hoveredBar=hit;[self setNeedsDisplay:YES];} }
 - (void)mouseExited:(NSEvent *)event { if(self.hoveredBar!=-1){self.hoveredBar=-1;[self setNeedsDisplay:YES];} }
 @end
@@ -161,7 +170,7 @@ static NSDictionary *LatestUsage(void) {
 @implementation AppDelegate
 - (void)applicationDidFinishLaunching:(NSNotification *)n {
     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory]; self.view=[[UsageView alloc]initWithFrame:NSMakeRect(0,0,430,184)];
-    self.panel=[[NSPanel alloc]initWithContentRect:self.view.bounds styleMask:NSWindowStyleMaskBorderless|NSWindowStyleMaskNonactivatingPanel backing:NSBackingStoreBuffered defer:NO];
+    self.panel=[[NSPanel alloc]initWithContentRect:self.view.bounds styleMask:NSWindowStyleMaskBorderless|NSWindowStyleMaskNonactivatingPanel|NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer:NO];
     self.panel.contentView=self.view; self.panel.opaque=NO; self.panel.backgroundColor=NSColor.clearColor; self.panel.hasShadow=YES; self.panel.level=NSFloatingWindowLevel; self.panel.collectionBehavior=NSWindowCollectionBehaviorCanJoinAllSpaces|NSWindowCollectionBehaviorFullScreenAuxiliary; self.panel.movableByWindowBackground=YES; self.panel.hidesOnDeactivate=NO;self.panel.acceptsMouseMovedEvents=YES;
     NSRect screen=NSScreen.mainScreen.visibleFrame; [self.panel setFrameOrigin:NSMakePoint(NSMaxX(screen)-452,NSMaxY(screen)-206)]; [self.panel orderFrontRegardless];
     __weak typeof(self) weak=self; self.view.refreshHandler=^{[weak refresh];}; self.view.closeHandler=^{[weak hidePanel];};
@@ -179,7 +188,7 @@ static NSDictionary *LatestUsage(void) {
 }
 - (void)showPanel { [self.panel orderFrontRegardless]; }
 - (void)hidePanel { [self.panel orderOut:nil]; }
-- (void)toggleStats { BOOL show=!self.view.statsVisible;self.view.statsVisible=show;NSRect frame=self.panel.frame;CGFloat right=NSMaxX(frame);frame.size.width=show?700:430;frame.origin.x=right-frame.size.width;[self.panel setFrame:frame display:YES animate:YES];[self.view setNeedsDisplay:YES]; }
+- (void)toggleStats { BOOL show=!self.view.statsVisible;CGFloat newBase=show?700:430;CGFloat scale=self.panel.frame.size.height/184.0;self.view.statsVisible=show;NSRect frame=self.panel.frame;CGFloat right=NSMaxX(frame);frame.size.width=newBase*scale;frame.origin.x=right-frame.size.width;[self.panel setFrame:frame display:YES animate:YES];[self.view setBoundsSize:NSMakeSize(newBase,184)];[self.view setNeedsDisplay:YES]; }
 - (void)quitApp { [NSApp terminate:nil]; }
 - (void)refresh { dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{ NSDictionary *s=LatestUsage(); dispatch_async(dispatch_get_main_queue(),^{self.view.snapshot=s; [self.view setNeedsDisplay:YES];});}); }
 @end
