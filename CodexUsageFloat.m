@@ -187,6 +187,7 @@ static NSDictionary *LatestUsage(void) {
     [self refresh]; [NSTimer scheduledTimerWithTimeInterval:45 target:self selector:@selector(refresh) userInfo:nil repeats:YES];
 }
 - (void)showPanel { [self.panel orderFrontRegardless]; }
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag { [self showPanel];return YES; }
 - (void)hidePanel { [self.panel orderOut:nil]; }
 - (void)toggleStats { BOOL show=!self.view.statsVisible;CGFloat newBase=show?700:430;CGFloat scale=self.panel.frame.size.height/184.0;self.view.statsVisible=show;NSRect frame=self.panel.frame;CGFloat right=NSMaxX(frame);frame.size.width=newBase*scale;frame.origin.x=right-frame.size.width;[self.panel setFrame:frame display:YES animate:YES];[self.view setBoundsSize:NSMakeSize(newBase,184)];[self.view setNeedsDisplay:YES]; }
 - (void)quitApp { [NSApp terminate:nil]; }

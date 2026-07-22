@@ -17,7 +17,7 @@
 - 原生 macOS 悬浮面板，始终置顶、可拖动、跨桌面显示
 - 右下角拖拽手柄支持等比例缩放，紧凑与统计视图均不会错位
 - 菜单栏常驻入口，可显示、隐藏、刷新或退出
-- 支持登录 macOS 后自动启动
+- 支持 Codex Desktop 启动时自动显示
 - 紫白主题，与 Codex Desktop 视觉风格协调
 - 不依赖第三方运行库，不上传任何本地数据
 
@@ -39,7 +39,7 @@ open "dist/Codex Usage.app"
 
 构建产物位于 `dist/Codex Usage.app`。应用使用本地临时签名，不需要 Apple Developer 账号。
 
-## 登录时自动启动
+## Codex 启动时自动显示
 
 运行安装脚本：
 
@@ -48,9 +48,9 @@ chmod +x install-autostart.sh uninstall-autostart.sh
 ./install-autostart.sh
 ```
 
-脚本会重新构建应用，将其安装到 `~/Applications/Codex Usage.app`，并注册用户级 LaunchAgent。此后每次登录 macOS，浮窗都会自动启动，不需要管理员权限。
+脚本会重新构建应用，将其安装到 `~/Applications/Codex Usage.app`，并注册一个轻量的用户级 LaunchAgent。监视器在后台等待 Codex Desktop；检测到 Codex 从未运行变为已运行时，自动显示浮窗。浮窗被隐藏后，再次启动 Codex 也会重新显示。整个过程不需要管理员权限。
 
-如需关闭自动启动：
+如需关闭自动显示：
 
 ```bash
 ./uninstall-autostart.sh
@@ -91,7 +91,8 @@ CodexUsageFloat.m  # AppKit 界面、日志解析与统计
 Info.plist         # macOS 应用配置
 build.sh           # 构建、签名和打包脚本
 install-autostart.sh   # 安装应用并启用登录自启
-uninstall-autostart.sh # 关闭登录自启
+watch-codex.sh          # 检测 Codex Desktop 启动
+uninstall-autostart.sh # 关闭自动显示
 assets/            # README 展示图片
 ```
 
